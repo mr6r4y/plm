@@ -48,23 +48,32 @@ typedef struct {
 	char data[];
 } VChunkHdr;
 
-bool vmem_create(Vmem *vmem, size_t init_alloc, size_t realloc_step);
-void *vmem_alloc(Vmem *vmem, size_t size);
-size_t vmem_chunk_size_get(void *ptr);
-VChunkHdr *vmem_chunk_get_by_index(Vmem *vmem, size_t ind);
-void vmem_clear(Vmem *vmem);
-void vmem_destroy(Vmem *vmem);
+extern bool vmem_create(Vmem *vmem, size_t init_alloc, size_t realloc_step);
+extern void *vmem_alloc(Vmem *vmem, size_t size);
+extern char *vmem_stralloc(Vmem *vmem, const char *s);
+extern size_t vmem_chunk_size_get(void *ptr);
+extern VChunkHdr *vmem_chunk_get_by_index(Vmem *vmem, size_t ind);
+extern void vmem_clear(Vmem *vmem);
+extern void vmem_destroy(Vmem *vmem);
 
 #endif /* PLM_BS_H */
 
 #ifdef PLM_BS_IMPLEMENTATION
 
-static char *plm_strncpy(char *d, char *s, size_t n)
+static char *plm_strncpy(char *d, const char *s, size_t n)
 {
 	for (; n && (*d = *s); n--, s++, d++)
 		;
 	d[n] = '\0';
 	return d;
+}
+
+static size_t plm_strlen(const char *s)
+{
+	const char *a = s;
+	for (; *s; s++)
+		;
+	return s - a;
 }
 
 bool vmem_create(Vmem *vmem, size_t init_alloc, size_t realloc_step)
@@ -93,7 +102,7 @@ size_t vmem_chunk_size(VChunkHdr *chunk)
 
 	align = sizeof(size_t);
 	ch_size = sizeof(VChunkHdr) + chunk->len;
-	ch_size = ch_size + align - ch_size & (align - 1);
+	ch_size = ch_size + align - (ch_size & (align - 1));
 	return ch_size;
 }
 
@@ -105,7 +114,7 @@ void *vmem_alloc(Vmem *vmem, size_t size)
 	free = vmem->alloc - vmem->end;
 	align = sizeof(size_t);
 	ch_size = sizeof(VChunkHdr) + size;
-	ch_size = ch_size + align - ch_size & (align - 1);
+	ch_size = ch_size + align - (ch_size & (align - 1));
 
 	if (free < ch_size) {
 		extra_alloc = ch_size - free + vmem->realloc_step;
@@ -125,6 +134,18 @@ void *vmem_alloc(Vmem *vmem, size_t size)
 	vmem->len += 1;
 
 	return &chunk->data;
+}
+
+char *vmem_stralloc(Vmem *vmem, const char *s)
+{
+	size_t l;
+	char *p;
+	l = plm_strlen(s);
+	p = vmem_alloc(vmem, l + 1);
+	if (!p)
+		return NULL;
+	plm_strncpy(p, s, l);
+	return p;
 }
 
 size_t vmem_chunk_size_get(void *ptr)
@@ -178,17 +199,56 @@ void vmem_destroy(Vmem *vmem)
 #ifdef PLM_BS_TEST
 
 #include <stdio.h>
+#include <assert.h>
 
-int main(int argc, char **argv)
+int plm_bs_smoke_test(void)
 {
 	Vmem vm;
+	VChunkHdr *chunk;
 	char *p;
-	size_t l;
+	size_t l, i, ind;
+	char stamp[] = "Iterator test string XXX";
+
 	if (!vmem_create(&vm, 0x1000, 0x1000))
 		printf("Error: Can't do vmem_create");
+
+	printf("Simple alloction\n");
 	p = vmem_alloc(&vm, 0x120);
 	l = vmem_chunk_size_get(p);
-	printf("p->size = 0x%lx", l);
+	printf("p->size = 0x%lx %p\n\n", l, p);
+
+	printf("Simple string allocation\n");
+	p = vmem_stralloc(&vm, "Test string 1 !");
+	l = vmem_chunk_size_get(p);
+	printf("p->size = 0x%lx; p = '%s' %p\n\n", l, p, p);
+
+	printf("Allocate a lot of strings\n");
+	for (i = 0; i < 60; i++) {
+		stamp[21] = ' '+i;
+		p = vmem_stralloc(&vm, stamp);
+		printf("%lu '%s' %p\n", i, p, p);
+	}
+	for (i = 0; i < 60; i++) {
+		stamp[22] = ' '+i;
+		p = vmem_stralloc(&vm, stamp);
+		printf("%lu '%s' %p\n", i, p, p);
+	}
+	for (i = 0; i < 60; i++) {
+		stamp[23] = ' '+i;
+		p = vmem_stralloc(&vm, stamp);
+		printf("%lu '%s' %p\n", i, p, p);
+	}
+	printf("\n");
+
+	ind = 36;
+	printf("Get chunk by index 0x%lx\n", ind);
+	chunk = vmem_chunk_get_by_index(&vm, ind);
+	printf("chunk->len = 0x%lx; chunk->canary = 0x%lx; chunk->data = '%s' %p\n\n", chunk->len, chunk->canary, (char *)chunk->data, chunk);
+
+	printf("\nvmem->len = 0x%lx; vmem->alloc = 0x%lx; vmem->end = 0x%lx; vmem->ptr = %p\n\n", vm.len, vm.alloc, vm.end, vm.ptr);
+
+	printf("Deallocate everything\n\n");
+	vmem_destroy(&vm);
 }
 
 #endif /* PLM_BS_TEST */
