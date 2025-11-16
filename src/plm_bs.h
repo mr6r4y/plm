@@ -55,7 +55,7 @@ extern void *vmem_alloc(Vmem *vmem, size_t size);
 extern char *vmem_stralloc(Vmem *vmem, const char *s);
 extern size_t vmem_chunk_size_get(void *ptr);
 extern VChunkHdr *vmem_chunk_get_by_index(Vmem *vmem, size_t ind);
-extern void vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb, void *context);
+extern bool vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb, void *context);
 extern void vmem_clear(Vmem *vmem);
 extern void vmem_destroy(Vmem *vmem);
 
@@ -173,6 +173,10 @@ VChunkHdr *vmem_chunk_get_by_index(Vmem *vmem, size_t ind)
 
 	ch = (VChunkHdr *)vmem->ptr;
 	while (ind != i) {
+#if PLM_VMEM_CANARY
+		if (ch->canary != PLM_VMEM_CANARY_VALUE)
+			return NULL;
+#endif
 		ch_size = vmem_chunk_size(ch);
 		ch = (VChunkHdr *)((uintptr_t)ch + ch_size);
 
@@ -182,7 +186,7 @@ VChunkHdr *vmem_chunk_get_by_index(Vmem *vmem, size_t ind)
 	return ch;
 }
 
-void vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb, void *context)
+bool vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb, void *context)
 {
 	VChunkHdr *ch;
 	size_t i = 0;
@@ -190,10 +194,16 @@ void vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb, void *context)
 
 	ch = (VChunkHdr *)vmem->ptr;
 	for (i = 0; i < vmem->len; i++) {
+#if PLM_VMEM_CANARY
+		if (ch->canary != PLM_VMEM_CANARY_VALUE)
+			return false;
+#endif
+
 		clb(ch, i, context);
 		ch_size = vmem_chunk_size(ch);
 		ch = (VChunkHdr *)((uintptr_t)ch + ch_size);
 	}
+	return true;
 }
 
 void vmem_clear(Vmem *vmem)
@@ -274,7 +284,8 @@ static int plm_bs_smoke_test(void)
 	printf("vmem->len = 0x%lx; vmem->alloc = 0x%lx; vmem->end = 0x%lx; vmem->ptr = %p\n\n", vm.len, vm.alloc, vm.end, vm.ptr);
 
 	printf("\nTest chunk iterator:\n");
-	vmem_chunk_iter(&vm, print_chunk, NULL);
+	if(!vmem_chunk_iter(&vm, print_chunk, NULL)) 
+		printf("Error: Canary check failed\n");
 
 	printf("\nDeallocate everything\n\n");
 	vmem_destroy(&vm);
