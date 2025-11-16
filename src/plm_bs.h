@@ -48,11 +48,14 @@ typedef struct {
 	char data[];
 } VChunkHdr;
 
+typedef void (*VmemChunkIterCallback)(VChunkHdr *chunk, size_t ind);
+
 extern bool vmem_create(Vmem *vmem, size_t init_alloc, size_t realloc_step);
 extern void *vmem_alloc(Vmem *vmem, size_t size);
 extern char *vmem_stralloc(Vmem *vmem, const char *s);
 extern size_t vmem_chunk_size_get(void *ptr);
 extern VChunkHdr *vmem_chunk_get_by_index(Vmem *vmem, size_t ind);
+extern void vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb);
 extern void vmem_clear(Vmem *vmem);
 extern void vmem_destroy(Vmem *vmem);
 
@@ -179,6 +182,20 @@ VChunkHdr *vmem_chunk_get_by_index(Vmem *vmem, size_t ind)
 	return ch;
 }
 
+void vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb)
+{
+	VChunkHdr *ch;
+	size_t i = 0;
+	size_t ch_size;
+
+	ch = (VChunkHdr *)vmem->ptr;
+	for (i = 0; i < vmem->len; i++) {
+		clb(ch, i);
+		ch_size = vmem_chunk_size(ch);
+		ch = (VChunkHdr *)((uintptr_t)ch + ch_size);
+	}
+}
+
 void vmem_clear(Vmem *vmem)
 {
 	vmem->len = 0;
@@ -201,7 +218,12 @@ void vmem_destroy(Vmem *vmem)
 #include <stdio.h>
 #include <assert.h>
 
-int plm_bs_smoke_test(void)
+static void print_chunk(VChunkHdr *chunk, size_t ind)
+{
+	printf("Chunk %lu: ch->len = %lu; ch->data = %p\n", ind, chunk->len, chunk->data);
+}
+
+static int plm_bs_smoke_test(void)
 {
 	Vmem vm;
 	VChunkHdr *chunk;
@@ -224,17 +246,17 @@ int plm_bs_smoke_test(void)
 
 	printf("Allocate a lot of strings\n");
 	for (i = 0; i < 60; i++) {
-		stamp[21] = ' '+i;
+		stamp[21] = ' ' + i;
 		p = vmem_stralloc(&vm, stamp);
 		printf("%lu '%s' %p\n", i, p, p);
 	}
 	for (i = 0; i < 60; i++) {
-		stamp[22] = ' '+i;
+		stamp[22] = ' ' + i;
 		p = vmem_stralloc(&vm, stamp);
 		printf("%lu '%s' %p\n", i, p, p);
 	}
 	for (i = 0; i < 60; i++) {
-		stamp[23] = ' '+i;
+		stamp[23] = ' ' + i;
 		p = vmem_stralloc(&vm, stamp);
 		printf("%lu '%s' %p\n", i, p, p);
 	}
@@ -245,9 +267,13 @@ int plm_bs_smoke_test(void)
 	chunk = vmem_chunk_get_by_index(&vm, ind);
 	printf("chunk->len = 0x%lx; chunk->canary = 0x%lx; chunk->data = '%s' %p\n\n", chunk->len, chunk->canary, (char *)chunk->data, chunk);
 
-	printf("\nvmem->len = 0x%lx; vmem->alloc = 0x%lx; vmem->end = 0x%lx; vmem->ptr = %p\n\n", vm.len, vm.alloc, vm.end, vm.ptr);
+	printf("\nCurrent vmem state:\n");
+	printf("vmem->len = 0x%lx; vmem->alloc = 0x%lx; vmem->end = 0x%lx; vmem->ptr = %p\n\n", vm.len, vm.alloc, vm.end, vm.ptr);
 
-	printf("Deallocate everything\n\n");
+	printf("\nTest chunk iterator:\n");
+	vmem_chunk_iter(&vm, print_chunk);
+
+	printf("\nDeallocate everything\n\n");
 	vmem_destroy(&vm);
 }
 
