@@ -48,14 +48,14 @@ typedef struct {
 	char data[];
 } VChunkHdr;
 
-typedef void (*VmemChunkIterCallback)(VChunkHdr *chunk, size_t ind);
+typedef void (*VmemChunkIterCallback)(VChunkHdr *chunk, size_t ind, void *context);
 
 extern bool vmem_create(Vmem *vmem, size_t init_alloc, size_t realloc_step);
 extern void *vmem_alloc(Vmem *vmem, size_t size);
 extern char *vmem_stralloc(Vmem *vmem, const char *s);
 extern size_t vmem_chunk_size_get(void *ptr);
 extern VChunkHdr *vmem_chunk_get_by_index(Vmem *vmem, size_t ind);
-extern void vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb);
+extern void vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb, void *context);
 extern void vmem_clear(Vmem *vmem);
 extern void vmem_destroy(Vmem *vmem);
 
@@ -182,7 +182,7 @@ VChunkHdr *vmem_chunk_get_by_index(Vmem *vmem, size_t ind)
 	return ch;
 }
 
-void vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb)
+void vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb, void *context)
 {
 	VChunkHdr *ch;
 	size_t i = 0;
@@ -190,7 +190,7 @@ void vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb)
 
 	ch = (VChunkHdr *)vmem->ptr;
 	for (i = 0; i < vmem->len; i++) {
-		clb(ch, i);
+		clb(ch, i, context);
 		ch_size = vmem_chunk_size(ch);
 		ch = (VChunkHdr *)((uintptr_t)ch + ch_size);
 	}
@@ -218,7 +218,7 @@ void vmem_destroy(Vmem *vmem)
 #include <stdio.h>
 #include <assert.h>
 
-static void print_chunk(VChunkHdr *chunk, size_t ind)
+static void print_chunk(VChunkHdr *chunk, size_t ind, void *context)
 {
 	printf("Chunk %lu: ch->len = %lu; ch->data = %p\n", ind, chunk->len, chunk->data);
 }
@@ -274,7 +274,7 @@ static int plm_bs_smoke_test(void)
 	printf("vmem->len = 0x%lx; vmem->alloc = 0x%lx; vmem->end = 0x%lx; vmem->ptr = %p\n\n", vm.len, vm.alloc, vm.end, vm.ptr);
 
 	printf("\nTest chunk iterator:\n");
-	vmem_chunk_iter(&vm, print_chunk);
+	vmem_chunk_iter(&vm, print_chunk, NULL);
 
 	printf("\nDeallocate everything\n\n");
 	vmem_destroy(&vm);
