@@ -265,8 +265,11 @@ static int plm_bs_smoke_test(void)
 	ind = 36;
 	printf("Get chunk by index 0x%lx\n", ind);
 	chunk = vmem_chunk_get_by_index(&vm, ind);
+#if PLM_VMEM_CANARY
 	printf("chunk->len = 0x%lx; chunk->canary = 0x%lx; chunk->data = '%s' %p\n\n", chunk->len, chunk->canary, (char *)chunk->data, chunk);
-
+#else
+	printf("chunk->len = 0x%lx; chunk->data = '%s' %p\n\n", chunk->len, (char *)chunk->data, chunk);
+#endif
 	printf("\nCurrent vmem state:\n");
 	printf("vmem->len = 0x%lx; vmem->alloc = 0x%lx; vmem->end = 0x%lx; vmem->ptr = %p\n\n", vm.len, vm.alloc, vm.end, vm.ptr);
 
