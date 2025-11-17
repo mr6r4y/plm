@@ -4,6 +4,8 @@
 #ifndef PLM_BS_H
 #define PLM_BS_H
 
+#define PLM_BS_VERSION "0.1.0"
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/types.h>
