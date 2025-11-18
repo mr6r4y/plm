@@ -61,6 +61,35 @@ extern bool vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb, void *context
 extern void vmem_clear(Vmem *vmem);
 extern void vmem_destroy(Vmem *vmem);
 
+extern void *plm_mock_malloc(Vmem *vm, size_t size);
+extern void plm_mock_free(Vmem *vm, void *ptr);
+extern void *plm_mock_realloc(Vmem *vm, void *ptr, size_t size);
+
+typedef struct {
+	Vmem *vm;
+	size_t count;
+	size_t first;
+	size_t last;
+} PlmQueue;
+
+typedef struct {
+	size_t prev;
+	size_t next;
+	char data[];
+} PlmQueueElem;
+
+/* TO-DO: Implement basic queue */
+/*
+
+plm_queue_create
+plm_queue_put
+plm_queue_get
+plm_queue_is_empty
+plm_queue_clear
+
+
+*/
+
 #endif /* PLM_BS_H */
 
 #ifdef PLM_BS_IMPLEMENTATION
@@ -223,6 +252,28 @@ void vmem_destroy(Vmem *vmem)
 	vmem->ptr = NULL;
 }
 
+void *plm_mock_malloc(Vmem *vm, size_t size)
+{
+	return vmem_alloc(vm, size);
+}
+
+void plm_mock_free(Vmem *vm, void *ptr)
+{
+}
+
+void *plm_mock_realloc(Vmem *vm, void *ptr, size_t size)
+{
+	size_t s;
+	void *new_ptr;
+	s = vmem_chunk_size_get(ptr);
+	if (s < size) {
+		new_ptr = vmem_alloc(vm, size);
+		memcpy(new_ptr, ptr, s);
+	}
+
+	return new_ptr;
+}
+
 #endif /* PLM_BS_IMPLEMENTATION */
 
 #ifdef PLM_BS_TEST
@@ -286,11 +337,16 @@ static int plm_bs_smoke_test(void)
 	printf("vmem->len = 0x%lx; vmem->alloc = 0x%lx; vmem->end = 0x%lx; vmem->ptr = %p\n\n", vm.len, vm.alloc, vm.end, vm.ptr);
 
 	printf("\nTest chunk iterator:\n");
-	if(!vmem_chunk_iter(&vm, print_chunk, NULL)) 
+	if (!vmem_chunk_iter(&vm, print_chunk, NULL))
 		printf("Error: Canary check failed\n");
 
 	printf("\nDeallocate everything\n\n");
 	vmem_destroy(&vm);
+}
+
+static int plm_bs_test_mock_alloc_with_stb_ds()
+{
+	/* TO-DO: Implement the hash table test with global arena and measure the arena usage */
 }
 
 #endif /* PLM_BS_TEST */
