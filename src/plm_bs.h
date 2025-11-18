@@ -4,10 +4,10 @@
 #ifndef PLM_BS_H
 #define PLM_BS_H
 
-#define PLM_BS_VERSION "0.1.0"
+#define PLM_BS_VERSION "0.2.0"
 
 #include <stdbool.h>
-#include <stdint.h>
+#include <stddef.h>
 #include <sys/types.h>
 
 #ifdef PLM_BS_IMPLEMENTATION
@@ -35,8 +35,8 @@
 
 typedef struct {
 	size_t len;
+	bool can_grow;
 	size_t alloc;
-	size_t realloc_step;
 	size_t end;
 	void *ptr;
 
@@ -52,10 +52,12 @@ typedef struct {
 
 typedef void (*VmemChunkIterCallback)(VChunkHdr *chunk, size_t ind, void *context);
 
-extern bool vmem_create(Vmem *vmem, size_t init_alloc, size_t realloc_step);
+extern bool vmem_create(Vmem *vmem, size_t size);
+extern bool vmem_grow(Vmem *vmem, size_t size);
 extern void *vmem_alloc(Vmem *vmem, size_t size);
 extern char *vmem_stralloc(Vmem *vmem, const char *s);
 extern size_t vmem_chunk_size_get(void *ptr);
+extern size_t vmem_free_size_get(Vmem *vmem);
 extern VChunkHdr *vmem_chunk_get_by_index(Vmem *vmem, size_t ind);
 extern bool vmem_chunk_iter(Vmem *vmem, VmemChunkIterCallback clb, void *context);
 extern void vmem_clear(Vmem *vmem);
@@ -65,34 +67,39 @@ extern void *plm_mock_malloc(Vmem *vm, size_t size);
 extern void plm_mock_free(Vmem *vm, void *ptr);
 extern void *plm_mock_realloc(Vmem *vm, void *ptr, size_t size);
 
+typedef ptrdiff_t QHandle;
+
 typedef struct {
-	Vmem *vm;
+	Vmem vm;
 	size_t count;
-	size_t first;
-	size_t last;
+	QHandle first;
+	QHandle last;
 } PlmQueue;
 
 typedef struct {
-	size_t prev;
-	size_t next;
+	size_t size;
+	QHandle prev;
+	QHandle next;
 	char data[];
 } PlmQueueElem;
 
-/* TO-DO: Implement basic queue */
-/*
+typedef struct {
+	size_t size;
+	void *ptr;
+} PlmSlice;
 
-plm_queue_create
-plm_queue_put
-plm_queue_get
-plm_queue_is_empty
-plm_queue_clear
-
-
-*/
+extern bool plm_queue_create(PlmQueue *q, size_t size);
+extern bool plm_queue_put(PlmQueue *q, void *data, size_t size);
+extern PlmSlice plm_queue_get(PlmQueue *q);
+extern void plm_queue_clear(PlmQueue *q);
+extern bool plm_queue_is_empty(PlmQueue *q);
+extern bool plm_queue_is_full(PlmQueue *q);
 
 #endif /* PLM_BS_H */
 
 #ifdef PLM_BS_IMPLEMENTATION
+
+#include <string.h>
 
 static char *plm_strncpy(char *d, const char *s, size_t n)
 {
@@ -110,23 +117,36 @@ static size_t plm_strlen(const char *s)
 	return s - a;
 }
 
-bool vmem_create(Vmem *vmem, size_t init_alloc, size_t realloc_step)
+bool vmem_create(Vmem *vmem, size_t size)
 {
 	size_t alloc, min_size;
 
-	if (init_alloc < 1)
+	if (size < 1)
 		return false;
 
-	vmem->ptr = plm_malloc(init_alloc);
+	vmem->ptr = plm_malloc(size);
 
 	if (!vmem->ptr)
 		return false;
 
 	vmem->len = 0;
-	vmem->alloc = init_alloc;
-	vmem->realloc_step = realloc_step;
+	vmem->can_grow = false;
+	vmem->alloc = size;
 	vmem->end = 0;
 
+	return true;
+}
+
+bool vmem_grow(Vmem *vmem, size_t size)
+{
+	void *new_ptr;
+	if (!vmem->can_grow)
+		return false;
+	new_ptr = plm_realloc(vmem->ptr, vmem->alloc + size);
+	if (!new_ptr)
+		return false;
+	vmem->ptr = new_ptr;
+	vmem->alloc += size;
 	return true;
 }
 
@@ -140,6 +160,11 @@ size_t vmem_chunk_size(VChunkHdr *chunk)
 	return ch_size;
 }
 
+size_t vmem_free_size_get(Vmem *vmem)
+{
+	return vmem->alloc - vmem->end;
+}
+
 void *vmem_alloc(Vmem *vmem, size_t size)
 {
 	size_t align, free, ch_size, extra_alloc;
@@ -151,11 +176,8 @@ void *vmem_alloc(Vmem *vmem, size_t size)
 	ch_size = ch_size + align - (ch_size & (align - 1));
 
 	if (free < ch_size) {
-		extra_alloc = ch_size - free + vmem->realloc_step;
-		vmem->ptr = plm_realloc(vmem->ptr, vmem->alloc + extra_alloc);
-		if (!vmem->ptr)
-			return false;
-		vmem->alloc += extra_alloc;
+		/* If the API returns a pointer the vmem->ptr should be stable. */
+		return NULL;
 	}
 
 	chunk = (VChunkHdr *)((uintptr_t)(vmem->ptr) + (uintptr_t)vmem->end);
@@ -274,6 +296,83 @@ void *plm_mock_realloc(Vmem *vm, void *ptr, size_t size)
 	return new_ptr;
 }
 
+bool plm_queue_create(PlmQueue *q, size_t size)
+{
+	if (!vmem_create(&q->vm, size))
+		return false;
+	q->vm.can_grow = true;
+	q->count = 0;
+	q->first = 0;
+	q->last = 0;
+	return true;
+}
+
+PlmQueueElem *plm_queue_get_elem_by_handle(PlmQueue *q, QHandle h)
+{
+	return (PlmQueueElem *)((uintptr_t)q->vm.ptr + h);
+}
+
+bool plm_queue_put(PlmQueue *q, void *data, size_t size)
+{
+	PlmQueueElem *e, *p;
+	size_t free;
+	QHandle h;
+
+	free = vmem_free_size_get(&q->vm);
+	if (free < size) {
+		if (!vmem_grow(&q->vm, q->vm.alloc))
+			return false;
+	}
+
+	e = (PlmQueueElem *)vmem_alloc(&q->vm, sizeof(PlmQueueElem) + size);
+	if (!e)
+		return false;
+	e->size = size;
+	e->prev = q->last;
+	e->next = 0;
+
+	h = e - q->vm.ptr;
+	if (count == 0)
+		q->first = h;
+	if (e->prev != 0) {
+		p = plm_queue_get_elem_by_handle(q, e->prev);
+		p->next = h;
+	}
+	q->last = h;
+
+	q->count++;
+
+	memcpy(&e->data, data, size);
+
+	return true;
+}
+
+PlmSlice plm_queue_get(PlmQueue *q)
+{
+	PlmQueueElem *e, *p;
+	PlmSlice s;
+
+	/* TO-DO: .. */
+
+	s.size = 0;
+	s.ptr = NULL;
+	return s;
+}
+
+void plm_queue_clear(PlmQueue *q)
+{
+}
+
+bool plm_queue_is_empty(PlmQueue *q)
+{
+	return q->count == 0;
+}
+
+bool plm_queue_is_full(PlmQueue *q)
+{
+	return false;
+}
+
 #endif /* PLM_BS_IMPLEMENTATION */
 
 #ifdef PLM_BS_TEST
@@ -294,18 +393,22 @@ static int plm_bs_smoke_test(void)
 	size_t l, i, ind;
 	char stamp[] = "Iterator test string XXX";
 
-	if (!vmem_create(&vm, 0x1000, 0x1000))
+	if (!vmem_create(&vm, 0x3000)) {
 		printf("Error: Can't do vmem_create");
+		assert(false);
+	}
 
 	printf("Simple alloction\n");
 	p = vmem_alloc(&vm, 0x120);
 	l = vmem_chunk_size_get(p);
 	printf("p->size = 0x%lx %p\n\n", l, p);
+	assert(l == 0x120);
 
 	printf("Simple string allocation\n");
 	p = vmem_stralloc(&vm, "Test string 1 !");
 	l = vmem_chunk_size_get(p);
 	printf("p->size = 0x%lx; p = '%s' %p\n\n", l, p, p);
+	assert(l == 16);
 
 	printf("Allocate a lot of strings\n");
 	for (i = 0; i < 60; i++) {
@@ -344,9 +447,14 @@ static int plm_bs_smoke_test(void)
 	vmem_destroy(&vm);
 }
 
-static int plm_bs_test_mock_alloc_with_stb_ds()
+static void plm_bs_test_mock_alloc_with_stb_ds()
 {
 	/* TO-DO: Implement the hash table test with global arena and measure the arena usage */
+}
+
+static void plm_bs_test_queue()
+{
+	/* TO-DO: Test queue implementation with growing vmem. */
 }
 
 #endif /* PLM_BS_TEST */
