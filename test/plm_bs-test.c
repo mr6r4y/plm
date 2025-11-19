@@ -4,5 +4,6 @@
 
 int main(int argc, char **argv)
 {
-	plm_bs_smoke_test();
+	plm_bs_test_vmem();
+	plm_bs_test_queue();
 }

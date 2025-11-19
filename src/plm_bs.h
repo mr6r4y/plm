@@ -8,6 +8,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <sys/types.h>
 
 #ifdef PLM_BS_IMPLEMENTATION
@@ -68,9 +69,11 @@ extern void plm_mock_free(Vmem *vm, void *ptr);
 extern void *plm_mock_realloc(Vmem *vm, void *ptr, size_t size);
 
 typedef ptrdiff_t QHandle;
+#define NULL_HANDLE -1
 
 typedef struct {
 	Vmem vm;
+	size_t init_size;
 	size_t count;
 	QHandle first;
 	QHandle last;
@@ -89,33 +92,19 @@ typedef struct {
 } PlmSlice;
 
 extern bool plm_queue_create(PlmQueue *q, size_t size);
+QHandle plm_queue_get_handle_by_elem(PlmQueue *q, PlmQueueElem *e);
+PlmQueueElem *plm_queue_get_elem_by_handle(PlmQueue *q, QHandle h);
 extern bool plm_queue_put(PlmQueue *q, void *data, size_t size);
 extern PlmSlice plm_queue_get(PlmQueue *q);
-extern void plm_queue_clear(PlmQueue *q);
+extern bool plm_queue_clear(PlmQueue *q);
+extern void plm_queue_destroy(PlmQueue *q);
 extern bool plm_queue_is_empty(PlmQueue *q);
-extern bool plm_queue_is_full(PlmQueue *q);
 
 #endif /* PLM_BS_H */
 
 #ifdef PLM_BS_IMPLEMENTATION
 
 #include <string.h>
-
-static char *plm_strncpy(char *d, const char *s, size_t n)
-{
-	for (; n && (*d = *s); n--, s++, d++)
-		;
-	d[n] = '\0';
-	return d;
-}
-
-static size_t plm_strlen(const char *s)
-{
-	const char *a = s;
-	for (; *s; s++)
-		;
-	return s - a;
-}
 
 bool vmem_create(Vmem *vmem, size_t size)
 {
@@ -196,11 +185,11 @@ char *vmem_stralloc(Vmem *vmem, const char *s)
 {
 	size_t l;
 	char *p;
-	l = plm_strlen(s);
+	l = strlen(s);
 	p = vmem_alloc(vmem, l + 1);
 	if (!p)
 		return NULL;
-	plm_strncpy(p, s, l);
+	strncpy(p, s, l);
 	return p;
 }
 
@@ -301,15 +290,26 @@ bool plm_queue_create(PlmQueue *q, size_t size)
 	if (!vmem_create(&q->vm, size))
 		return false;
 	q->vm.can_grow = true;
+	q->init_size = size;
 	q->count = 0;
-	q->first = 0;
-	q->last = 0;
+	q->first = NULL_HANDLE;
+	q->last = NULL_HANDLE;
 	return true;
 }
 
 PlmQueueElem *plm_queue_get_elem_by_handle(PlmQueue *q, QHandle h)
 {
 	return (PlmQueueElem *)((uintptr_t)q->vm.ptr + h);
+}
+
+QHandle plm_queue_get_handle_by_elem(PlmQueue *q, PlmQueueElem *e)
+{
+	return (void *)e - q->vm.ptr;
+}
+
+size_t plm_queue_vmem_size_for_data(size_t size)
+{
+	return sizeof(size_t) + sizeof(VChunkHdr) + sizeof(PlmQueueElem) + size;
 }
 
 bool plm_queue_put(PlmQueue *q, void *data, size_t size)
@@ -319,7 +319,7 @@ bool plm_queue_put(PlmQueue *q, void *data, size_t size)
 	QHandle h;
 
 	free = vmem_free_size_get(&q->vm);
-	if (free < size) {
+	if (free < plm_queue_vmem_size_for_data(size)) {
 		if (!vmem_grow(&q->vm, q->vm.alloc))
 			return false;
 	}
@@ -329,12 +329,12 @@ bool plm_queue_put(PlmQueue *q, void *data, size_t size)
 		return false;
 	e->size = size;
 	e->prev = q->last;
-	e->next = 0;
+	e->next = NULL_HANDLE;
 
-	h = e - q->vm.ptr;
-	if (count == 0)
+	h = plm_queue_get_handle_by_elem(q, e);
+	if (q->count == 0)
 		q->first = h;
-	if (e->prev != 0) {
+	if (e->prev != NULL_HANDLE) {
 		p = plm_queue_get_elem_by_handle(q, e->prev);
 		p->next = h;
 	}
@@ -352,25 +352,46 @@ PlmSlice plm_queue_get(PlmQueue *q)
 	PlmQueueElem *e, *p;
 	PlmSlice s;
 
-	/* TO-DO: .. */
+	if (plm_queue_is_empty(q) || (q->first == NULL_HANDLE)) {
+		s.size = 0;
+		s.ptr = NULL;
+		return s;
+	}
 
-	s.size = 0;
-	s.ptr = NULL;
+	e = plm_queue_get_elem_by_handle(q, q->first);
+	if (e->next != NULL_HANDLE) {
+		p = plm_queue_get_elem_by_handle(q, e->next);
+		p->prev = NULL_HANDLE;
+	}
+	q->first = e->next;
+
+	q->count--;
+
+	if (q->count == 0)
+		q->last = NULL_HANDLE;
+
+	s.size = e->size;
+	s.ptr = &e->data;
 	return s;
 }
 
-void plm_queue_clear(PlmQueue *q)
+bool plm_queue_clear(PlmQueue *q)
 {
+	vmem_destroy(&q->vm);
+	return plm_queue_create(q, q->init_size);
+}
+
+void plm_queue_destroy(PlmQueue *q)
+{
+	vmem_destroy(&q->vm);
+	q->count = 0;
+	q->first = NULL_HANDLE;
+	q->last = NULL_HANDLE;
 }
 
 bool plm_queue_is_empty(PlmQueue *q)
 {
 	return q->count == 0;
-}
-
-bool plm_queue_is_full(PlmQueue *q)
-{
-	return false;
 }
 
 #endif /* PLM_BS_IMPLEMENTATION */
@@ -380,12 +401,23 @@ bool plm_queue_is_full(PlmQueue *q)
 #include <stdio.h>
 #include <assert.h>
 
+#ifndef PLM_BS_TEST_VERBOSE
+# define PLM_BS_TEST_VERBOSE 0
+#endif
+
 static void print_chunk(VChunkHdr *chunk, size_t ind, void *context)
 {
+#if PLM_VMEM_CANARY
+	assert(chunk->canary == PLM_VMEM_CANARY_VALUE);
+#endif
+#if PLM_BS_TEST_VERBOSE
 	printf("Chunk %lu: ch->len = %lu; ch->data = %p\n", ind, chunk->len, chunk->data);
+#else
+	printf("%lu=%lu;", ind, chunk->len);
+#endif
 }
 
-static int plm_bs_smoke_test(void)
+static int plm_bs_test_vmem(void)
 {
 	Vmem vm;
 	VChunkHdr *chunk;
@@ -414,17 +446,26 @@ static int plm_bs_smoke_test(void)
 	for (i = 0; i < 60; i++) {
 		stamp[21] = ' ' + i;
 		p = vmem_stralloc(&vm, stamp);
+		assert(strcmp(p, stamp) == 0);
+#if PLM_BS_TEST_VERBOSE
 		printf("%lu '%s' %p\n", i, p, p);
+#endif
 	}
 	for (i = 0; i < 60; i++) {
 		stamp[22] = ' ' + i;
 		p = vmem_stralloc(&vm, stamp);
+		assert(strcmp(p, stamp) == 0);
+#if PLM_BS_TEST_VERBOSE
 		printf("%lu '%s' %p\n", i, p, p);
+#endif
 	}
 	for (i = 0; i < 60; i++) {
 		stamp[23] = ' ' + i;
 		p = vmem_stralloc(&vm, stamp);
+		assert(strcmp(p, stamp) == 0);
+#if PLM_BS_TEST_VERBOSE
 		printf("%lu '%s' %p\n", i, p, p);
+#endif
 	}
 	printf("\n");
 
@@ -437,13 +478,13 @@ static int plm_bs_smoke_test(void)
 	printf("chunk->len = 0x%lx; chunk->data = '%s' %p\n\n", chunk->len, (char *)chunk->data, chunk);
 #endif
 	printf("\nCurrent vmem state:\n");
-	printf("vmem->len = 0x%lx; vmem->alloc = 0x%lx; vmem->end = 0x%lx; vmem->ptr = %p\n\n", vm.len, vm.alloc, vm.end, vm.ptr);
+	printf("vmem->len = 0x%lx; vmem->alloc = 0x%lx; vmem->end = 0x%lx; vmem->ptr = %p\n", vm.len, vm.alloc, vm.end, vm.ptr);
 
 	printf("\nTest chunk iterator:\n");
 	if (!vmem_chunk_iter(&vm, print_chunk, NULL))
 		printf("Error: Canary check failed\n");
 
-	printf("\nDeallocate everything\n\n");
+	printf("\n\nDeallocate everything\n\n");
 	vmem_destroy(&vm);
 }
 
@@ -454,7 +495,89 @@ static void plm_bs_test_mock_alloc_with_stb_ds()
 
 static void plm_bs_test_queue()
 {
-	/* TO-DO: Test queue implementation with growing vmem. */
+	PlmQueue q;
+	PlmSlice s;
+	char stamp[] = "Iterator test string XXX";
+#define STAMP_LENGTH 28
+	char stamp2[STAMP_LENGTH] = { '\0' };
+	size_t l, i, ind;
+
+	printf("Create queue\n");
+	if (!plm_queue_create(&q, 0x100)) {
+		printf("Error: Can't create queue");
+		assert(false);
+	}
+	printf("\n");
+
+	printf("Iterative put\n");
+	for (i = 0; i < 0x1000; i++) {
+		printf("i=0x%lx;", i);
+		sprintf(stamp2, "XXXXXXXX %010lx XXXXXXX", i);
+		assert(plm_queue_put(&q, stamp2, STAMP_LENGTH));
+	}
+	printf("\n");
+
+	printf("Iterative get\n");
+	for (i = 0; i < 0x1000; i++) {
+		printf("i=0x%lx;", i);
+		sprintf(stamp2, "XXXXXXXX %010lx XXXXXXX", i);
+		s = plm_queue_get(&q);
+		assert(s.size == STAMP_LENGTH);
+		assert(strcmp(s.ptr, stamp2) == 0);
+	}
+	printf("\n");
+
+	printf("Check empty\n");
+	assert(plm_queue_is_empty(&q));
+	printf("\n");
+
+	printf("Another put and get\n");
+	assert(plm_queue_put(&q, "aaaa", 5));
+	s = plm_queue_get(&q);
+	assert(s.size == 5);
+	assert(strcmp(s.ptr, "aaaa") == 0);
+	printf("\n");
+
+	printf("Clear queue\n");
+	if (!plm_queue_clear(&q)) {
+		printf("Error: Can't clear queue");
+		assert(false);
+	}
+	printf("\n");
+
+	printf("Iterative put\n");
+	for (i = 0; i < 0x1000; i++) {
+		printf("i=0x%lx;", i);
+		sprintf(stamp2, "XXXXXXXX %010lx XXXXXXX", i);
+		assert(plm_queue_put(&q, stamp2, STAMP_LENGTH));
+	}
+	printf("\n");
+
+	printf("Iterative get\n");
+	for (i = 0; i < 0x1000; i++) {
+		printf("i=0x%lx;", i);
+		sprintf(stamp2, "XXXXXXXX %010lx XXXXXXX", i);
+		s = plm_queue_get(&q);
+		assert(s.size == STAMP_LENGTH);
+		assert(strcmp(s.ptr, stamp2) == 0);
+	}
+	printf("\n");
+
+	printf("Check empty\n");
+	assert(plm_queue_is_empty(&q));
+	printf("\n");
+
+	printf("Another put and get\n");
+	assert(plm_queue_put(&q, "aaaa", 5));
+	s = plm_queue_get(&q);
+	assert(s.size == 5);
+	assert(strcmp(s.ptr, "aaaa") == 0);
+	printf("\n");
+
+	printf("Destroy queue\n");
+	plm_queue_destroy(&q);
+	assert(q.vm.ptr == NULL);
+	printf("\n");
 }
 
 #endif /* PLM_BS_TEST */
