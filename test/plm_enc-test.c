@@ -5,5 +5,5 @@
 int main(int argc, char **argv)
 {
 	plm_enc_test_hexdump();
+	plm_enc_test_bin2hex_hex2bin();
 }
-

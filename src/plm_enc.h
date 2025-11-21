@@ -18,6 +18,16 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
+/**
+ * hex2bin - converts hex to binary
+ */
+size_t hex2bin(const char *src, uint8_t *out, size_t src_size);
+
+/**
+ * bin2hex - converts binary to hex representation
+ */
+void bin2hex(const uint8_t *src, char *out, size_t src_size);
+
 enum dump_prefix_t {
 	DUMP_PREFIX_NONE,
 	DUMP_PREFIX_ADDRESS,
@@ -129,6 +139,58 @@ static bool is_power_of_2(unsigned long n)
 #define MAX_LINE_LENGTH_BYTES 64
 
 const char hex_asc[] = "0123456789abcdef";
+
+bool hexchr2bin(const char hex, char *out)
+{
+	if (out == NULL)
+		return false;
+
+	if (hex >= '0' && hex <= '9')
+		*out = hex - '0';
+	else if (hex >= 'A' && hex <= 'F')
+		*out = hex - 'A' + 10;
+	else if (hex >= 'a' && hex <= 'f')
+		*out = hex - 'a' + 10;
+	else
+		return false;
+
+	return true;
+}
+
+size_t hex2bin(const char *src, uint8_t *out, size_t src_size)
+{
+	size_t out_size;
+	char b1;
+	char b2;
+	size_t i;
+
+	if (src == NULL || *src == '\0' || out == NULL)
+		return 0;
+
+	if (src_size % 2 != 0)
+		return 0;
+
+	out_size = src_size / 2;
+
+	memset(out, 'A', out_size);
+	for (i = 0; i < out_size; i++) {
+		if (!hexchr2bin(src[i * 2], &b1) || !hexchr2bin(src[i * 2 + 1], &b2))
+			return 0;
+		out[i] = (b1 << 4) | b2;
+	}
+
+	return out_size;
+}
+
+void bin2hex(const uint8_t *src, char *out, size_t src_size)
+{
+	size_t i, j;
+	for (i = 0; i < src_size; i++) {
+		out[i * 2] = hex_asc_hi(src[i]);
+		out[i * 2 + 1] = hex_asc_lo(src[i]);
+	}
+	out[src_size * 2] = '\0';
+}
 
 void hexdump(char *ptr, size_t length)
 {
@@ -282,6 +344,25 @@ int print_hex_dump(const char *prefix_str, int prefix_type, int rowsize,
 void plm_enc_test_hexdump()
 {
 	hexdump(hexdump, 0x201);
+}
+
+void plm_enc_test_bin2hex_hex2bin()
+{
+	const char *a = "Test 123! - jklmn";
+	char *hex;
+	uint8_t *bin;
+	size_t binlen;
+
+	hex = malloc(strlen(a) * 2 + 1);
+	bin2hex((uint8_t *)a, hex, strlen(a));
+	printf("\n%s\n", hex);
+
+	bin = malloc(strlen(hex) / 2 + 10);
+	binlen = hex2bin(hex, bin, strlen(hex));
+	printf("%ld, %s\n", (int)binlen, (char *)bin);
+
+	free(bin);
+	free(hex);
 }
 
 #endif /* PLM_ENC_TEST */
