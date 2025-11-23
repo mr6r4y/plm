@@ -26,4 +26,12 @@ dap.configurations.c = {
 
 		program = vim.fs.normalize("build/Debug/plm_bs-test"), -- This configuration will launch the current file if used
 	},
+	{
+		-- The first three options are required by nvim-dap
+		type = "codelldb", -- the type here established the link to the adapter definition: `dap.adapters.python`
+		request = "launch",
+		name = "plm_enc-test",
+
+		program = vim.fs.normalize("build/Debug/plm_enc-test"), -- This configuration will launch the current file if used
+	},
 }

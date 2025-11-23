@@ -10,3 +10,6 @@ include_directories(BEFORE src/ )
 
 add_executable(plm_bs-test test/plm_bs-test.c)
 install(TARGETS plm_bs-test)
+
+add_executable(plm_enc-test test/plm_enc-test.c)
+install(TARGETS plm_enc-test)

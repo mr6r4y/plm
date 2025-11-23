@@ -1,4 +1,4 @@
-/* plm_bs.h - v0.1 - basic data structures and memory allocation primitives - plm 2025
+/* plm_bs.h - basic data structures and memory allocation primitives - plm 2025
  */
 
 #ifndef PLM_BS_H
