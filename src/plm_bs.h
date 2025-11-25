@@ -4,7 +4,7 @@
 #ifndef PLM_BS_H
 #define PLM_BS_H
 
-#define PLM_BS_VERSION "0.2.0"
+#define PLM_BS_VERSION "0.2.1"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -103,6 +103,7 @@ extern bool plm_queue_is_empty(PlmQueue *q);
 #endif /* PLM_BS_H */
 
 #ifdef PLM_BS_IMPLEMENTATION
+#undef PLM_BS_IMPLEMENTATION
 
 #include <string.h>
 
