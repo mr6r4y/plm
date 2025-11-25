@@ -103,6 +103,7 @@ extern bool plm_queue_is_empty(PlmQueue *q);
 #endif /* PLM_BS_H */
 
 #ifdef PLM_BS_IMPLEMENTATION
+#undef PLM_BS_IMPLEMENTATION
 
 #include <string.h>
 

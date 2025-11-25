@@ -124,6 +124,7 @@ static bool is_power_of_2(unsigned long n)
 #endif /* PLM_ENC_H */
 
 #ifdef PLM_ENC_IMPLEMENTATION
+#undef PLM_ENC_IMPLEMENTATION
 
 #define hex_asc_lo(x)		     hex_asc[((x) & 0x0f)]
 #define hex_asc_hi(x)		     hex_asc[((x) & 0xf0) >> 4]
