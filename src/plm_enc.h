@@ -4,7 +4,7 @@
 #ifndef PLM_ENC_H
 #define PLM_ENC_H
 
-#define PLM_ENC_VERSION "0.1.0"
+#define PLM_ENC_VERSION "0.1.1"
 
 #include <errno.h>
 #include <ctype.h>
