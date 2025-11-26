@@ -21,12 +21,12 @@ typedef uint64_t u64;
 /**
  * hex2bin - converts hex to binary
  */
-size_t hex2bin(const char *src, uint8_t *out, size_t src_size);
+extern size_t hex2bin(const char *src, uint8_t *out, size_t src_size);
 
 /**
  * bin2hex - converts binary to hex representation
  */
-void bin2hex(const uint8_t *src, char *out, size_t src_size);
+extern void bin2hex(const uint8_t *src, char *out, size_t src_size);
 
 enum dump_prefix_t {
 	DUMP_PREFIX_NONE,
@@ -108,19 +108,6 @@ extern int hex_dump_to_buffer(const char *buf, size_t len, int rowsize, int grou
 extern int print_hex_dump(const char *prefix_str, int prefix_type, int rowsize,
 			  int groupsize, const void *buf, size_t len, bool ascii);
 
-/**
- * is_power_of_2() - check if a value is a power of two
- * @n: the value to check
- *
- * Determine whether some value is a power of two, where zero is
- * *not* considered a power of two.
- * Return: true if @n is a power of 2, otherwise false.
- */
-static bool is_power_of_2(unsigned long n)
-{
-	return (n != 0 && ((n & (n - 1)) == 0));
-}
-
 #endif /* PLM_ENC_H */
 
 #ifdef PLM_ENC_IMPLEMENTATION
@@ -138,6 +125,19 @@ static bool is_power_of_2(unsigned long n)
 #define get_unaligned(t, ptr) __get_unaligned_t(t, (ptr))
 
 #define MAX_LINE_LENGTH_BYTES 64
+
+/**
+ * is_power_of_2() - check if a value is a power of two
+ * @n: the value to check
+ *
+ * Determine whether some value is a power of two, where zero is
+ * *not* considered a power of two.
+ * Return: true if @n is a power of 2, otherwise false.
+ */
+static bool is_power_of_2(unsigned long n)
+{
+	return (n != 0 && ((n & (n - 1)) == 0));
+}
 
 const char hex_asc[] = "0123456789abcdef";
 
