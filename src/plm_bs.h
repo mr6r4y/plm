@@ -4,7 +4,7 @@
 #ifndef PLM_BS_H
 #define PLM_BS_H
 
-#define PLM_BS_VERSION "0.2.0"
+#define PLM_BS_VERSION "0.2.1"
 
 #include <stdbool.h>
 #include <stddef.h>
