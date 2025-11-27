@@ -4,7 +4,7 @@
 #ifndef PLM_ENC_H
 #define PLM_ENC_H
 
-#define PLM_ENC_VERSION "0.1.1"
+#define PLM_ENC_VERSION "0.1.2"
 
 #include <errno.h>
 #include <ctype.h>
@@ -26,7 +26,7 @@ extern size_t hex2bin(const char *src, uint8_t *out, size_t src_size);
 /**
  * bin2hex - converts binary to hex representation
  */
-extern void bin2hex(const uint8_t *src, char *out, size_t src_size);
+extern size_t bin2hex(const uint8_t *src, char *out, size_t src_size);
 
 enum dump_prefix_t {
 	DUMP_PREFIX_NONE,
@@ -183,7 +183,7 @@ size_t hex2bin(const char *src, uint8_t *out, size_t src_size)
 	return out_size;
 }
 
-void bin2hex(const uint8_t *src, char *out, size_t src_size)
+size_t bin2hex(const uint8_t *src, char *out, size_t src_size)
 {
 	size_t i, j;
 	for (i = 0; i < src_size; i++) {
@@ -191,6 +191,8 @@ void bin2hex(const uint8_t *src, char *out, size_t src_size)
 		out[i * 2 + 1] = hex_asc_lo(src[i]);
 	}
 	out[src_size * 2] = '\0';
+
+	return src_size * 2 + 1;
 }
 
 void hexdump(char *ptr, size_t length)
