@@ -1,0 +1,70 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  venv:
+    cmds:
+      - python3 -m venv venv/
+      - source venv/bin/activate && pip3 install conan
+    status:
+      - test -d venv/
+
+  conan-profile:
+    deps: [venv]
+    cmds:
+      - source venv/bin/activate && conan profile detect --force
+    status:
+      - test -f CMakeUserPresets.json
+
+  conan-install-debug:
+    deps: [conan-profile]
+    cmds:
+      - source venv/bin/activate && conan install . --settings=build_type=Debug --build=missing
+    status:
+      - test -d build/Debug
+
+  conan-install-release:
+    deps: [conan-profile]
+    cmds:
+      - source venv/bin/activate && conan install . --settings=build_type=Release --build=missing
+    status:
+      - test -d build/Release
+
+  cmake-configure-debug:
+    deps: [conan-install-debug]
+    cmds:
+      - cmake --preset conan-debug
+    status:
+      - test -f build/Debug/Makefile
+
+  cmake-configure-release:
+    deps: [conan-install-release]
+    cmds:
+      - cmake --preset conan-release
+    status:
+      - test -f build/Release/Makefile
+
+  cmake-build-debug:
+    deps: [cmake-configure-debug]
+    cmds:
+      - cmake --build --preset conan-debug
+
+  cmake-build-release:
+    deps: [cmake-configure-release]
+    cmds:
+      - cmake --build --preset conan-release
+
+  cmake-install:
+    deps: [cmake-build-release]
+    cmds:
+      - cmake --install build/Release --prefix dist/
+
+  clean:
+    cmds:
+      - rm -rf build/
+      - rm -rf dist/
+
+  default:
+    cmds:
+      - task: cmake-install

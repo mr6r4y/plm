@@ -1,4 +1,6 @@
 build/
+dist/
+venv/
 CMakeUserPresets.json
 ctags-files.txt
 tags
