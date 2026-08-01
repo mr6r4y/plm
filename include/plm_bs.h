@@ -188,6 +188,7 @@ char *vmem_stralloc(Vmem *vmem, const char *s)
 	char *p;
 	l = strlen(s);
 	p = vmem_alloc(vmem, l + 1);
+	p[l] = '\0';
 	if (!p)
 		return NULL;
 	strncpy(p, s, l);
