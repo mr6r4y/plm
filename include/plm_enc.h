@@ -341,31 +341,3 @@ int print_hex_dump(const char *prefix_str, int prefix_type, int rowsize,
 }
 
 #endif /* PLM_BS_IMPLEMENTATION */
-
-#ifdef PLM_ENC_TEST
-
-void plm_enc_test_hexdump()
-{
-	hexdump(hexdump, 0x201);
-}
-
-void plm_enc_test_bin2hex_hex2bin()
-{
-	const char *a = "Test 123! - jklmn";
-	char *hex;
-	uint8_t *bin;
-	size_t binlen;
-
-	hex = malloc(strlen(a) * 2 + 1);
-	bin2hex((uint8_t *)a, hex, strlen(a));
-	printf("\n%s\n", hex);
-
-	bin = malloc(strlen(hex) / 2 + 10);
-	binlen = hex2bin(hex, bin, strlen(hex));
-	printf("%ld, %s\n", (int)binlen, (char *)bin);
-
-	free(bin);
-	free(hex);
-}
-
-#endif /* PLM_ENC_TEST */

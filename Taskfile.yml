@@ -43,10 +43,11 @@ tasks:
     status:
       - test -d build/Debug
 
-  conan-test-debug:
+  test-debug:
     deps: [cmake-build-debug]
     cmds:
       - ctest --preset conan-debug --output-on-failure --no-tests=error
+      # - ctest --preset conan-debug --verbose --no-tests=error
 
   cmake-build-debug:
     deps: [conan-build-debug]
