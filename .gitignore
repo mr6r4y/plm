@@ -1,6 +1,8 @@
 build/
 dist/
 venv/
+.conan2/
+.conanrc
 CMakeUserPresets.json
 ctags-files.txt
 tags

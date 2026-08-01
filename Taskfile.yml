@@ -10,6 +10,11 @@ tasks:
     status:
       - test -d venv/
 
+  ctags:
+    deps: [venv]
+    cmds:
+      - source venv/bin/activate && ./ctags-gen.sh
+
   conan-profile:
     deps: [venv]
     cmds:
@@ -20,43 +25,41 @@ tasks:
   conan-install-debug:
     deps: [conan-profile]
     cmds:
-      - source venv/bin/activate && conan install . --settings=build_type=Debug --build=missing
+      - source venv/bin/activate && conan install . --settings=build_type=Debug --build="*"
     status:
       - test -d build/Debug
 
   conan-install-release:
     deps: [conan-profile]
     cmds:
-      - source venv/bin/activate && conan install . --settings=build_type=Release --build=missing
+      - source venv/bin/activate && conan install . --settings=build_type=Release --build="*"
     status:
       - test -d build/Release
 
-  cmake-configure-debug:
+  conan-build-debug:
     deps: [conan-install-debug]
     cmds:
-      - cmake --preset conan-debug
+      - source venv/bin/activate && conan build . --settings=build_type=Debug --build="*"
     status:
-      - test -f build/Debug/Makefile
+      - test -d build/Debug
 
-  cmake-configure-release:
-    deps: [conan-install-release]
+  conan-test-debug:
+    deps: [cmake-build-debug]
     cmds:
-      - cmake --preset conan-release
-    status:
-      - test -f build/Release/Makefile
+      - ctest --preset conan-debug --output-on-failure --no-tests=error
 
   cmake-build-debug:
-    deps: [cmake-configure-debug]
+    deps: [conan-build-debug]
     cmds:
-      - cmake --build --preset conan-debug
+      - cmake --build build/Debug
 
-  cmake-build-release:
-    deps: [cmake-configure-release]
+  conan-build-release:
+    deps: [conan-install-release]
     cmds:
-      - cmake --build --preset conan-release
+      - source venv/bin/activate && conan build . --settings=build_type=Release --build="*"
 
   cmake-install:
-    deps: [cmake-build-release]
+    deps: [conan-build-release]
     cmds:
       - cmake --install build/Release --prefix dist/
 

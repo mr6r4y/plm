@@ -1,15 +1,12 @@
 cmake_minimum_required (VERSION 3.12)
+project(plm LANGUAGES C VERSION 0.3.0)
 
-set(TARGET_NAME "plm-test")
-
-project(${TARGET_NAME})
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_C_STANDARD 90)
+set(CMAKE_C_STANDARD 11)
 
-include_directories(BEFORE src/ )
+include(CTest)  # Defines BUILD_TESTING and enables CTest when ON
 
-add_executable(plm_bs-test test/plm_bs-test.c)
-install(TARGETS plm_bs-test)
+if(BUILD_TESTING)
+    add_subdirectory(test)
+endif()
 
-add_executable(plm_enc-test test/plm_enc-test.c)
-install(TARGETS plm_enc-test)
