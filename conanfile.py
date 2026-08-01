@@ -19,6 +19,13 @@ class PlmConan(ConanFile):
     package_type = "header-library"
     exports_sources = "include/*", "test/*", "CMakeLists.txt"
 
+    options = {
+        "sanitizer": ["none", "asan", "tsan"],
+    }
+    default_options = {
+        "sanitizer": "none",
+    }
+
     def set_version(self):
         content = load(self, os.path.join(self.recipe_folder, "CMakeLists.txt"))
         match = re.search(
@@ -33,12 +40,19 @@ class PlmConan(ConanFile):
         self.version = match.group(1)
 
     def layout(self):
-        cmake_layout(self)
+        sanitizer = str(self.options.sanitizer)
+        build_folder = "build" if sanitizer == "none" else f"build/{sanitizer}"
+        cmake_layout(self, build_folder=build_folder)
 
     def generate(self):
+        sanitizer = str(self.options.sanitizer)
+
         deps = CMakeDeps(self)
         deps.generate()
+
         tc = CMakeToolchain(self)
+        tc.cache_variables["SANITIZER"] = sanitizer
+        tc.presets_prefix = "conan" if sanitizer == "none" else f"conan-{sanitizer}"
         tc.generate()
 
     def build_requirements(self):
@@ -48,6 +62,7 @@ class PlmConan(ConanFile):
         cmake = CMake(self)
         cmake.configure()
         cmake.build()
+        cmake.ctest(cli_args=["--output-on-failure", "--no-tests=error"])
 
     def package(self):
         # This will also copy the "include" folder

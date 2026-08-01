@@ -111,7 +111,7 @@ static void plm_bs_test_queue()
 
 	printf("Iterative put\n");
 	for (i = 0; i < 0x1000; i++) {
-		printf("i=0x%lx;", i);
+		// printf("i=0x%lx;", i);
 		sprintf(stamp2, "XXXXXXXX %010lx XXXXXXX", i);
 		assert_true(plm_queue_put(&q, stamp2, STAMP_LENGTH));
 	}
@@ -119,7 +119,7 @@ static void plm_bs_test_queue()
 
 	printf("Iterative get\n");
 	for (i = 0; i < 0x1000; i++) {
-		printf("i=0x%lx;", i);
+		// printf("i=0x%lx;", i);
 		sprintf(stamp2, "XXXXXXXX %010lx XXXXXXX", i);
 		s = plm_queue_get(&q);
 		assert_true(s.size == STAMP_LENGTH);
@@ -147,7 +147,7 @@ static void plm_bs_test_queue()
 
 	printf("Iterative put\n");
 	for (i = 0; i < 0x1000; i++) {
-		printf("i=0x%lx;", i);
+		// printf("i=0x%lx;", i);
 		sprintf(stamp2, "XXXXXXXX %010lx XXXXXXX", i);
 		assert_true(plm_queue_put(&q, stamp2, STAMP_LENGTH));
 	}
@@ -155,7 +155,7 @@ static void plm_bs_test_queue()
 
 	printf("Iterative get\n");
 	for (i = 0; i < 0x1000; i++) {
-		printf("i=0x%lx;", i);
+		// printf("i=0x%lx;", i);
 		sprintf(stamp2, "XXXXXXXX %010lx XXXXXXX", i);
 		s = plm_queue_get(&q);
 		assert_true(s.size == STAMP_LENGTH);

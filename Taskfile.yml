@@ -49,6 +49,26 @@ tasks:
       - ctest --preset conan-debug --output-on-failure --no-tests=error
       # - ctest --preset conan-debug --verbose --no-tests=error
 
+  conan-build-debug-asan:
+    deps: [conan-profile]
+    env:
+      ASAN_OPTIONS: "detect_leaks=1:halt_on_error=1:abort_on_error=1"
+    cmds:
+      - source venv/bin/activate && conan install . --settings=build_type=Debug --options="&:sanitizer=asan" --build="*"
+      - source venv/bin/activate && conan build . --settings=build_type=Debug --options="&:sanitizer=asan"
+    status:
+      - test -d build/asan/Debug
+
+  cmake-build-debug-asan:
+    deps: [conan-build-debug-asan]
+    cmds:
+      - cmake --build build/asan/Debug
+
+  test-debug-asan:
+    deps: [cmake-build-debug-asan]
+    cmds:
+      - ctest --preset conan-asan-debug --output-on-failure --no-tests=error
+
   cmake-build-debug:
     deps: [conan-build-debug]
     cmds:
