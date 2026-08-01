@@ -2,18 +2,17 @@
 
 
 packages=(
-	lksctp-tools/1.0.19
-	log.c/cci.20200620
+	cmocka/1.1.8
 )
 
 function c_tags()
 {
-find "$@" -name '*.c' > ctags-files.txt
-find "$@" -name '*.cc' >> ctags-files.txt
-find "$@" -name '*.CC' >> ctags-files.txt
-find "$@" -name '*.[chCH]' >> ctags-files.txt
+	find "$@" -name '*.c' > ctags-files.txt
+	find "$@" -name '*.cc' >> ctags-files.txt
+	find "$@" -name '*.CC' >> ctags-files.txt
+	find "$@" -name '*.[chCH]' >> ctags-files.txt
 
-ctags -L ctags-files.txt
+	ctags -L ctags-files.txt
 }
 
 ct_directories=""
@@ -37,5 +36,5 @@ for p in  ${packages[@]};do
 	fi
 done;
 
-echo ct src/ deps/ $ct_directories
-c_tags src/ deps/ $ct_directories
+echo ct include/ $ct_directories
+c_tags include/ $ct_directories
