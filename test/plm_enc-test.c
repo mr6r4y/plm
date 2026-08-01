@@ -34,12 +34,15 @@ void plm_enc_test_bin2hex_hex2bin()
 	free(hex);
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
 	const struct CMUnitTest tests[] = {
 		cmocka_unit_test(plm_enc_test_hexdump),
 		cmocka_unit_test(plm_enc_test_bin2hex_hex2bin),
 	};
+
+	if (argc > 1)
+		cmocka_set_test_filter(argv[1]);
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }

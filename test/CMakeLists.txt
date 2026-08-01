@@ -46,6 +46,9 @@ target_link_libraries(plm_bs-test PRIVATE
     sanitizers
     ${CMOCKA_LIBRARY}
 )
+target_compile_definitions(plm_bs-test PRIVATE
+    PLM_BS_TEST_VERBOSE=0
+)
 
 add_executable(plm_enc-test plm_enc-test.c)
 target_link_libraries(plm_enc-test PRIVATE
@@ -53,14 +56,15 @@ target_link_libraries(plm_enc-test PRIVATE
     ${CMOCKA_LIBRARY}
 )
 
-add_test(NAME plm_bs.unit COMMAND plm_bs-test)
-add_test(NAME plm_enc.unit COMMAND plm_enc-test)
+function(add_cmocka_unit_test target test_name)
+    add_test(NAME ${test_name} COMMAND ${target} ${test_name})
+    set_tests_properties(${test_name} PROPERTIES
+        LABELS "unit"
+        TIMEOUT 30
+    )
+endfunction()
 
-set_tests_properties(plm_bs.unit PROPERTIES
-    LABELS "unit"
-    TIMEOUT 30
-)
-set_tests_properties(plm_enc.unit PROPERTIES
-    LABELS "unit"
-    TIMEOUT 30
-)
+add_cmocka_unit_test(plm_bs-test plm_bs_test_vmem)
+add_cmocka_unit_test(plm_bs-test plm_bs_test_queue)
+add_cmocka_unit_test(plm_enc-test plm_enc_test_hexdump)
+add_cmocka_unit_test(plm_enc-test plm_enc_test_bin2hex_hex2bin)

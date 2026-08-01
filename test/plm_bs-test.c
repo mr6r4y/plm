@@ -48,10 +48,11 @@ static void plm_bs_test_vmem()
 	for (i = 0; i < 60; i++) {
 		stamp[21] = ' ' + i;
 		p = vmem_stralloc(&vm, stamp);
-		assert_true(strcmp(p, stamp) == 0);
 #if PLM_BS_TEST_VERBOSE
-		printf("%lu '%s' %p\n", i, p, p);
+		printf("%lu '%s' %p, strcmp(p, stamp)=%d\n", i, p, p, strcmp(p, stamp));
+		printf("%s == %s\n", p, stamp);
 #endif
+		assert_true(strcmp(p, stamp) == 0);
 	}
 	for (i = 0; i < 60; i++) {
 		stamp[22] = ' ' + i;
@@ -111,7 +112,9 @@ static void plm_bs_test_queue()
 
 	printf("Iterative put\n");
 	for (i = 0; i < 0x1000; i++) {
-		// printf("i=0x%lx;", i);
+#if PLM_BS_TEST_VERBOSE
+		printf("i=0x%lx;", i);
+#endif
 		sprintf(stamp2, "XXXXXXXX %010lx XXXXXXX", i);
 		assert_true(plm_queue_put(&q, stamp2, STAMP_LENGTH));
 	}
@@ -119,7 +122,9 @@ static void plm_bs_test_queue()
 
 	printf("Iterative get\n");
 	for (i = 0; i < 0x1000; i++) {
-		// printf("i=0x%lx;", i);
+#if PLM_BS_TEST_VERBOSE
+		printf("i=0x%lx;", i);
+#endif
 		sprintf(stamp2, "XXXXXXXX %010lx XXXXXXX", i);
 		s = plm_queue_get(&q);
 		assert_true(s.size == STAMP_LENGTH);
@@ -147,7 +152,9 @@ static void plm_bs_test_queue()
 
 	printf("Iterative put\n");
 	for (i = 0; i < 0x1000; i++) {
-		// printf("i=0x%lx;", i);
+#if PLM_BS_TEST_VERBOSE
+		printf("i=0x%lx;", i);
+#endif
 		sprintf(stamp2, "XXXXXXXX %010lx XXXXXXX", i);
 		assert_true(plm_queue_put(&q, stamp2, STAMP_LENGTH));
 	}
@@ -155,7 +162,9 @@ static void plm_bs_test_queue()
 
 	printf("Iterative get\n");
 	for (i = 0; i < 0x1000; i++) {
-		// printf("i=0x%lx;", i);
+#if PLM_BS_TEST_VERBOSE
+		printf("i=0x%lx;", i);
+#endif
 		sprintf(stamp2, "XXXXXXXX %010lx XXXXXXX", i);
 		s = plm_queue_get(&q);
 		assert_true(s.size == STAMP_LENGTH);
@@ -186,6 +195,9 @@ int main(int argc, char **argv)
 		cmocka_unit_test(plm_bs_test_vmem),
 		cmocka_unit_test(plm_bs_test_queue),
 	};
+
+	if (argc > 1)
+		cmocka_set_test_filter(argv[1]);
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
 }
