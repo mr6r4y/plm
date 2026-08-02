@@ -41,7 +41,7 @@ tasks:
     cmds:
       - source venv/bin/activate && conan build . --settings=build_type=Debug --build="*"
     status:
-      - test -d build/Debug
+      - test -f build/Debug/CMakeCache.txt
 
   test-debug:
     deps: [cmake-build-debug]
@@ -57,7 +57,7 @@ tasks:
       - source venv/bin/activate && conan install . --settings=build_type=Debug --options="&:sanitizer=asan" --build="*"
       - source venv/bin/activate && conan build . --settings=build_type=Debug --options="&:sanitizer=asan"
     status:
-      - test -d build/asan/Debug
+      - test -d build/asan/Debug/CMakeCache.txt
 
   cmake-build-debug-asan:
     deps: [conan-build-debug-asan]
@@ -78,6 +78,8 @@ tasks:
     deps: [conan-install-release]
     cmds:
       - source venv/bin/activate && conan build . --settings=build_type=Release --build="*"
+    status:
+      - test -d build/Release/CMakeCache.txt
 
   cmake-install:
     deps: [conan-build-release]
