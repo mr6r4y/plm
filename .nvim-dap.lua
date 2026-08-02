@@ -22,6 +22,15 @@ dap.configurations.c = {
 		-- The first three options are required by nvim-dap
 		type = "codelldb", -- the type here established the link to the adapter definition: `dap.adapters.python`
 		request = "launch",
+		name = "plm_enc_test_negative_rowsize_uses_default",
+
+		program = vim.fs.normalize("build/Debug/test/plm_enc-test"), -- This configuration will launch the current file if used
+		args = { "plm_enc_test_negative_rowsize_uses_default" },
+	},
+	{
+		-- The first three options are required by nvim-dap
+		type = "codelldb", -- the type here established the link to the adapter definition: `dap.adapters.python`
+		request = "launch",
 		name = "plm_bs-test-asan-plm_bs_test_vmem",
 
 		program = vim.fs.normalize("build/asan/Debug/test/plm_bs-test"), -- This configuration will launch the current file if used
