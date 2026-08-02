@@ -210,7 +210,7 @@ int hex_dump_to_buffer(const char *buf, size_t len, int rowsize, int groupsize,
 	int ascii_column;
 	int ret;
 
-	if (!rowsize)
+	if (0 >= rowsize)
 		rowsize = 16;
 	else
 		rowsize = min(rowsize, MAX_LINE_LENGTH_BYTES);
